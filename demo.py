@@ -22,7 +22,7 @@ if __name__ == "__main__":
     img_obj= resample_img(img_obj, TARGET_SHAPE)
 
     # lungseg
-    lung_obj = lung_seg(img_obj)
+    lung_obj = lung_seg(img_obj,kind='dilate')
     lung_mask = sitk.GetArrayFromImage(lung_obj)
     target_shape = (lung_mask.shape[1],lung_mask.shape[2])
 
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     img_obj.SetDirection(img_obj.GetDirection())
 
     for name,method,proc_obj in [
-        ('airway',airway_seg,img_obj),
+        ('airway',airway_seg,masked_img_obj),
         ('vessel',vessel_seg,masked_img_obj),
         ('fissure',fissure_seg,masked_img_obj),
         ]:

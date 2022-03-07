@@ -1,10 +1,11 @@
 import numpy as np
 from scipy import ndimage
 from skimage import measure
+import skfmm
 import SimpleITK as sitk
 
 # naive lungseg using image processing methods.
-def lung_seg(img_obj):
+def lung_seg(img_obj,kind=None):
     
     arr = sitk.GetArrayFromImage(img_obj)
     spacing = img_obj.GetSpacing()
@@ -36,9 +37,14 @@ def lung_seg(img_obj):
         if contain_bkgd > 0:
             continue
         lung_mask[mask==1]=1
-       
+    
     lung_mask = ndimage.morphology.binary_closing(lung_mask,iterations=5)
-    lung_mask = ndimage.morphology.binary_erosion(lung_mask,iterations=10).astype(arr.dtype)
+    if kind == 'erode':        
+        lung_mask = ndimage.morphology.binary_erosion(lung_mask,iterations=10).astype(arr.dtype)
+    elif kind  == 'dilate':
+        lung_mask = ndimage.morphology.binary_dilation(lung_mask,iterations=10).astype(arr.dtype)
+    else:
+        pass
 
     lung_obj = sitk.GetImageFromArray(lung_mask)
     lung_obj.SetSpacing(spacing)
@@ -95,10 +101,17 @@ def vessel_seg(masked_obj):
     myfilter.SetGamma(5.0)
     return vessel_obj
 
-# https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6737148/pdf/10278_2018_Article_158.pdf
-# alpha,beta,gamma: 0.05,10,100.0
-# sigma: from 0.5 to 2.5 mm with a step size of 0.5 mm.
-# TODO: need a loop for sigma
+
+def get_point_seeded_field(img,seed):
+    sx,sy,sz = seed
+    mask = ~img.astype(bool)
+    img = img.astype(float)
+    m = np.ones_like(img)
+    m[sx,sy,sz] = 0
+    m = np.ma.masked_array(m, mask)
+    ss_field = skfmm.distance(m)
+    return ss_field
+
 def airway_seg(img_obj):
 
     arr = sitk.GetArrayFromImage(img_obj)
@@ -106,29 +119,47 @@ def airway_seg(img_obj):
     origin = img_obj.GetOrigin()
     direction = img_obj.GetDirection()  
 
-    arr_list = []
-    for sigma in np.arange(0.5,3,0.5):
-        gaussian =sitk.SmoothingRecursiveGaussianImageFilter()
-        gaussian.SetSigma(sigma)
-        blurred = gaussian.Execute(img_obj)
-        myfilter = sitk.ObjectnessMeasureImageFilter()
-        myfilter.SetBrightObject(False)
-        myfilter.SetObjectDimension(1) # 1: lines (vessels)
-        myfilter.SetAlpha(0.05)
-        myfilter.SetBeta(10.)
-        myfilter.SetGamma(100.0)
-        enhanced = myfilter.Execute(blurred)
-        arr = sitk.GetArrayFromImage(enhanced)
-        arr_list.append(arr)
+    bkgd = np.zeros(arr.shape).astype(np.uint8)
+    pad = 5
+    bkgd[:,:,:pad]=1
+    bkgd[:,:,-1*pad:]=1
+    bkgd[:,:pad,:]=1
+    bkgd[:,-1*pad:,:]=1
+    
+    procarr = (arr < -300).astype(np.int)
+    procarr = ndimage.morphology.binary_closing(procarr,iterations=1)
 
-    arr = np.array(arr_list)
-    print(arr.shape)
-    arr = np.max(arr,axis=0).squeeze()
-    airway_obj = sitk.GetImageFromArray(arr)
+    label_image, num = ndimage.label(procarr)
+    region = measure.regionprops(label_image)
+
+    region = sorted(region,key=lambda x:x.area,reverse=True)
+    lung_mask = np.zeros(arr.shape).astype(np.uint8)
+    
+    # assume `x` largest air pockets except covering bkgd is lung, increase x for lung with fibrosis (?)
+    x=2
+    for r in region[:x]: # should just be 1 or 2, but getting x, since closing may not work.
+        mask = label_image==r.label
+        contain_bkgd = np.sum(mask*bkgd) > 0
+        if contain_bkgd > 0:
+            continue
+        lung_mask[mask==1]=1
+    
+    # locate trachea.
+    trachea = lung_mask.copy()
+    trachea[10:,:,:]=0 # TODO: hard coded param not good.
+    label_image, num = ndimage.label(trachea)
+    region = measure.regionprops(label_image)
+    region = sorted(region,key=lambda x:x.area,reverse=True)
+    seed = region[0].centroid
+    seed = tuple(np.array(seed).astype(np.int))
+    ss_field = get_point_seeded_field(lung_mask,seed).astype(np.int)
+    airway = np.logical_and(ss_field>=0,ss_field<75) # TODO: need to compute derivative from histogram
+    airway = airway.astype(np.uint8)
+    
+    airway_obj = sitk.GetImageFromArray(airway)
     airway_obj.SetSpacing(spacing)
     airway_obj.SetOrigin(origin)
     airway_obj.SetDirection(direction)
-
     return airway_obj
 
 def fissure_seg(masked_obj):
