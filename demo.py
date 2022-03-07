@@ -22,8 +22,9 @@ if __name__ == "__main__":
     img_obj= resample_img(img_obj, TARGET_SHAPE)
 
     # lungseg
-    lung_obj = lung_seg(img_obj,kind='dilate')
-    lung_mask = sitk.GetArrayFromImage(lung_obj)
+    lung_obj = lung_seg(img_obj,kind='erode')
+    lung_trachea_obj = lung_seg(img_obj)
+    lung_mask = sitk.GetArrayFromImage(lung_trachea_obj)
     target_shape = (lung_mask.shape[1],lung_mask.shape[2])
 
     # visualize
@@ -53,12 +54,12 @@ if __name__ == "__main__":
     img_obj.SetOrigin(img_obj.GetOrigin())
     img_obj.SetDirection(img_obj.GetDirection())
 
-    for name,method,proc_obj in [
-        ('airway',airway_seg,masked_img_obj),
-        ('vessel',vessel_seg,masked_img_obj),
-        ('fissure',fissure_seg,masked_img_obj),
+    for name,method,args in [
+        ('airway',airway_seg,(img_obj,lung_trachea_obj)),
+        ('vessel',vessel_seg,(masked_img_obj,)),
+        ('fissure',fissure_seg,(masked_img_obj,)),
         ]:
-        tmp_obj = method(proc_obj)
+        tmp_obj = method(*args)
 
         # visualize
         tmp = sitk.GetArrayFromImage(tmp_obj)

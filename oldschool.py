@@ -46,7 +46,7 @@ def lung_seg(img_obj,kind=None):
     else:
         pass
 
-    lung_obj = sitk.GetImageFromArray(lung_mask)
+    lung_obj = sitk.GetImageFromArray(lung_mask.astype(arr.dtype))
     lung_obj.SetSpacing(spacing)
     lung_obj.SetOrigin(origin)
     lung_obj.SetDirection(direction)
@@ -103,6 +103,7 @@ def vessel_seg(masked_obj):
 
 
 def get_point_seeded_field(img,seed):
+    # reference https://github.com/pangyuteng/simple-centerline-extraction
     sx,sy,sz = seed
     mask = ~img.astype(bool)
     img = img.astype(float)
@@ -112,50 +113,42 @@ def get_point_seeded_field(img,seed):
     ss_field = skfmm.distance(m)
     return ss_field
 
-def airway_seg(img_obj):
+# prime example of a bad method.
+def airway_seg(img_obj,lung_obj):
 
-    arr = sitk.GetArrayFromImage(img_obj)
-    spacing = img_obj.GetSpacing()
-    origin = img_obj.GetOrigin()
-    direction = img_obj.GetDirection()  
-
-    bkgd = np.zeros(arr.shape).astype(np.uint8)
-    pad = 5
-    bkgd[:,:,:pad]=1
-    bkgd[:,:,-1*pad:]=1
-    bkgd[:,:pad,:]=1
-    bkgd[:,-1*pad:,:]=1
-    
-    procarr = (arr < -300).astype(np.int)
-    procarr = ndimage.morphology.binary_closing(procarr,iterations=1)
-
-    label_image, num = ndimage.label(procarr)
-    region = measure.regionprops(label_image)
-
-    region = sorted(region,key=lambda x:x.area,reverse=True)
-    lung_mask = np.zeros(arr.shape).astype(np.uint8)
-    
-    # assume `x` largest air pockets except covering bkgd is lung, increase x for lung with fibrosis (?)
-    x=2
-    for r in region[:x]: # should just be 1 or 2, but getting x, since closing may not work.
-        mask = label_image==r.label
-        contain_bkgd = np.sum(mask*bkgd) > 0
-        if contain_bkgd > 0:
-            continue
-        lung_mask[mask==1]=1
+    img = sitk.GetArrayFromImage(img_obj)
+    lung_mask = sitk.GetArrayFromImage(lung_obj)
+    spacing = lung_obj.GetSpacing()
+    origin = lung_obj.GetOrigin()
+    direction = lung_obj.GetDirection()  
     
     # locate trachea.
     trachea = lung_mask.copy()
-    trachea[10:,:,:]=0 # TODO: hard coded param not good.
+    trachea[10:,:,:]=0 # TODO: hard coded param - bad.
     label_image, num = ndimage.label(trachea)
     region = measure.regionprops(label_image)
     region = sorted(region,key=lambda x:x.area,reverse=True)
     seed = region[0].centroid
     seed = tuple(np.array(seed).astype(np.int))
+    print('seed',seed)
     ss_field = get_point_seeded_field(lung_mask,seed).astype(np.int)
-    airway = np.logical_and(ss_field>=0,ss_field<75) # TODO: need to compute derivative from histogram
+    ss_field[lung_mask==0]=-1
+    import imageio
+    for x in sorted(np.unique(ss_field)):
+        threshold = x
+        ss_mean = np.mean(img[ss_field==x])
+        # intensity increases going from trachea to lung
+        if ss_mean > -950: # TODO: hard coded param - not great but justified.
+            break
+        '''
+        vimg = np.sum(ss_field==x,axis=1).squeeze()
+        vimg = (255*(vimg-np.min(vimg))/(np.max(vimg)-np.min(vimg))).clip(0,255).astype(np.uint8)
+        imageio.imwrite(f'{x}.png',vimg)
+        print(ss_mean,threshold)
+        '''
+    airway = np.logical_and(ss_field>=0,ss_field<threshold)
     airway = airway.astype(np.uint8)
-    
+
     airway_obj = sitk.GetImageFromArray(airway)
     airway_obj.SetSpacing(spacing)
     airway_obj.SetOrigin(origin)
