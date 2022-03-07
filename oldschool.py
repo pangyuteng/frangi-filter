@@ -1,3 +1,5 @@
+
+import imageio
 import numpy as np
 from scipy import ndimage
 from skimage import measure
@@ -123,6 +125,33 @@ def vessel_seg(img_obj):
     return vessel_obj
 
 
+def fissure_seg(img_obj):
+
+    # lungseg
+    lung_obj = lung_seg(img_obj,kind='erode5')
+    
+    img = sitk.GetArrayFromImage(img_obj).clip(-1000,1000).astype(np.float)
+    lung = sitk.GetArrayFromImage(lung_obj)
+    # mask non-lung
+    masked_img = img
+    masked_img[lung==0] = -1000
+
+    masked_obj = sitk.GetImageFromArray(masked_img)
+    masked_obj.SetSpacing(img_obj.GetSpacing())
+    masked_obj.SetOrigin(img_obj.GetOrigin())
+    masked_obj.SetDirection(img_obj.GetDirection())
+
+    myfilter = sitk.ObjectnessMeasureImageFilter()
+    myfilter.SetBrightObject(True)
+    myfilter.SetObjectDimension(2) # 2: planes (plate-like structures)
+    # nope nope nope
+    myfilter.SetAlpha(0.5) 
+    myfilter.SetBeta(0.5)
+    myfilter.SetGamma(1000.0)
+    fissure_obj = myfilter.Execute(masked_obj)
+    return fissure_obj
+
+
 def get_point_seeded_field(img,seed):
     # reference https://github.com/pangyuteng/simple-centerline-extraction
     sx,sy,sz = seed
@@ -160,19 +189,24 @@ def airway_seg(img_obj):
     print('seed',seed)
     ss_field = get_point_seeded_field(lung_mask,seed).astype(np.int)
     ss_field[lung_mask==0]=-1
-    import imageio
-    for x in sorted(np.unique(ss_field)):
+    '''
+    for n,x in enumerate(sorted(np.unique(ss_field))):
+        if x < 0:
+            continue
         threshold = x
         ss_mean = np.mean(img[ss_field==x])
+        print(x,ss_mean,np.sum(ss_field==x))
         # intensity increases going from trachea to lung
-        if ss_mean > -950: # TODO: hard coded param - not great but justified.
-            break
-        '''
+        #if ss_mean > -950: # TODO: hard coded param - not great but justified.
+        #    break
+        if n > 200:
+            break    
         vimg = np.sum(ss_field==x,axis=1).squeeze()
         vimg = (255*(vimg-np.min(vimg))/(np.max(vimg)-np.min(vimg))).clip(0,255).astype(np.uint8)
         imageio.imwrite(f'{x}.png',vimg)
         print(ss_mean,threshold)
-        '''
+    '''
+    threshold = 75
     airway = np.logical_and(ss_field>=0,ss_field<threshold)
     airway = airway.astype(np.uint8)
 
@@ -181,29 +215,3 @@ def airway_seg(img_obj):
     airway_obj.SetOrigin(origin)
     airway_obj.SetDirection(direction)
     return airway_obj
-
-def fissure_seg(img_obj):
-
-    # lungseg
-    lung_obj = lung_seg(img_obj,kind='erode5')
-    
-    img = sitk.GetArrayFromImage(img_obj).clip(-1000,1000).astype(np.float)
-    lung = sitk.GetArrayFromImage(lung_obj)
-    # mask non-lung
-    masked_img = img
-    masked_img[lung==0] = -1000
-
-    masked_obj = sitk.GetImageFromArray(masked_img)
-    masked_obj.SetSpacing(img_obj.GetSpacing())
-    masked_obj.SetOrigin(img_obj.GetOrigin())
-    masked_obj.SetDirection(img_obj.GetDirection())
-
-    myfilter = sitk.ObjectnessMeasureImageFilter()
-    myfilter.SetBrightObject(True)
-    myfilter.SetObjectDimension(2) # 2: planes (plate-like structures)
-    # nope nope nope
-    myfilter.SetAlpha(0.5) 
-    myfilter.SetBeta(0.5)
-    myfilter.SetGamma(1000.0)
-    fissure_obj = myfilter.Execute(masked_obj)
-    return fissure_obj
