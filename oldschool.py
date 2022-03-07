@@ -39,10 +39,12 @@ def lung_seg(img_obj,kind=None):
         lung_mask[mask==1]=1
     
     lung_mask = ndimage.morphology.binary_closing(lung_mask,iterations=5)
-    if kind == 'erode':        
-        lung_mask = ndimage.morphology.binary_erosion(lung_mask,iterations=10).astype(arr.dtype)
+    if kind == 'erode5':
+        lung_mask = ndimage.morphology.binary_erosion(lung_mask,iterations=5).astype(arr.dtype)
+    elif kind == 'erode1':
+        lung_mask = ndimage.morphology.binary_erosion(lung_mask,iterations=1).astype(arr.dtype)
     elif kind  == 'dilate':
-        lung_mask = ndimage.morphology.binary_dilation(lung_mask,iterations=10).astype(arr.dtype)
+        lung_mask = ndimage.morphology.binary_dilation(lung_mask,iterations=3).astype(arr.dtype)
     else:
         pass
 
@@ -87,7 +89,26 @@ def lung_seg(img_obj,kind=None):
 #   itkSetMacro(Gamma, double);
 #   itkGetConstMacro(Gamma, double);
 #
-def vessel_seg(masked_obj):
+
+
+
+
+def vessel_seg(img_obj):
+
+    # lungseg
+    lung_obj = lung_seg(img_obj,kind='erode5')
+    
+    img = sitk.GetArrayFromImage(img_obj).clip(-1000,1000).astype(np.float)
+    lung = sitk.GetArrayFromImage(lung_obj)
+    # mask non-lung
+    masked_img = img
+    masked_img[lung==0] = -1000
+
+    masked_obj = sitk.GetImageFromArray(masked_img)
+    masked_obj.SetSpacing(img_obj.GetSpacing())
+    masked_obj.SetOrigin(img_obj.GetOrigin())
+    masked_obj.SetDirection(img_obj.GetDirection())
+    
     myfilter = sitk.ObjectnessMeasureImageFilter()
     myfilter.SetBrightObject(True)
     myfilter.SetObjectDimension(1) # 1: lines (vessels),
@@ -114,7 +135,13 @@ def get_point_seeded_field(img,seed):
     return ss_field
 
 # prime example of a bad method.
-def airway_seg(img_obj,lung_obj):
+# TODO: stay on point and use frangi...
+# region grow is your typical method to do airway seg.
+# distance tranform method used below is straying off the excercise of this project, which is frangi filter.
+# 
+def airway_seg(img_obj):
+
+    lung_obj = lung_seg(img_obj,kind='erode1')
 
     img = sitk.GetArrayFromImage(img_obj)
     lung_mask = sitk.GetArrayFromImage(lung_obj)
@@ -155,7 +182,22 @@ def airway_seg(img_obj,lung_obj):
     airway_obj.SetDirection(direction)
     return airway_obj
 
-def fissure_seg(masked_obj):
+def fissure_seg(img_obj):
+
+    # lungseg
+    lung_obj = lung_seg(img_obj,kind='erode5')
+    
+    img = sitk.GetArrayFromImage(img_obj).clip(-1000,1000).astype(np.float)
+    lung = sitk.GetArrayFromImage(lung_obj)
+    # mask non-lung
+    masked_img = img
+    masked_img[lung==0] = -1000
+
+    masked_obj = sitk.GetImageFromArray(masked_img)
+    masked_obj.SetSpacing(img_obj.GetSpacing())
+    masked_obj.SetOrigin(img_obj.GetOrigin())
+    masked_obj.SetDirection(img_obj.GetDirection())
+
     myfilter = sitk.ObjectnessMeasureImageFilter()
     myfilter.SetBrightObject(True)
     myfilter.SetObjectDimension(2) # 2: planes (plate-like structures)
