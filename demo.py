@@ -13,10 +13,6 @@ if __name__ == "__main__":
     # download    
     image_root = "images"
     series_instance_uid = '1.3.6.1.4.1.14519.5.2.1.6279.6001.113679818447732724990336702075'
-    #
-    # odd fissure structure... 
-    # lof: complete
-    # rof,rhf: incompletes?
 
     myfile = f'{image_root}/{series_instance_uid}.nii.gz'
     if not os.path.exists(myfile):

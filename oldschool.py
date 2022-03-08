@@ -3,7 +3,6 @@ import imageio
 import numpy as np
 from scipy import ndimage
 from skimage import measure
-import skfmm
 import SimpleITK as sitk
 
 # naive lungseg using image processing methods.
@@ -131,16 +130,25 @@ def fissure_seg(img_obj):
     origin = img_obj.GetOrigin()
     direction = img_obj.GetDirection()
 
+    img = sitk.GetArrayFromImage(img_obj)
+    # fissure val hovers around -600, setting th to be lower
+    # so abnormal tissue >-200 will be enhanced at similar magnitude
+    #img = img.clip(-1024,102)
+    clipped_obj = sitk.GetImageFromArray(img)
+    clipped_obj.SetSpacing(spacing)
+    clipped_obj.SetOrigin(origin)
+    clipped_obj.SetDirection(direction)
+
     gaussian = sitk.SmoothingRecursiveGaussianImageFilter()
-    gaussian.SetSigma(float(0.5))
-    smoothed = gaussian.Execute(img_obj)
+    gaussian.SetSigma(float(0.7))
+    smoothed = gaussian.Execute(clipped_obj)
 
     myfilter = sitk.ObjectnessMeasureImageFilter()
     myfilter.SetBrightObject(True)
     myfilter.SetObjectDimension(2) # 2: planes (plate-like structures)
-    # nope nope nope
-    myfilter.SetAlpha(0.5) 
-    myfilter.SetBeta(0.5)
+
+    myfilter.SetAlpha(1.0)
+    myfilter.SetBeta(1.0)
     myfilter.SetGamma(500.0)
     
     tmp_obj = myfilter.Execute(smoothed)
