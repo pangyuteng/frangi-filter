@@ -141,7 +141,7 @@ def fissure_seg(img_obj):
     # nope nope nope
     myfilter.SetAlpha(0.5) 
     myfilter.SetBeta(0.5)
-    myfilter.SetGamma(1000.0)
+    myfilter.SetGamma(500.0)
     
     tmp_obj = myfilter.Execute(smoothed)
     arr = sitk.GetArrayFromImage(tmp_obj)
@@ -156,6 +156,11 @@ def fissure_seg(img_obj):
     fissure_obj.SetDirection(direction)
 
     return fissure_obj
+
+# TODO: cythonize below
+def fissure_seg_v2(img_obj):
+    # https://github.com/pangyuteng/Lung-Lobes-Segmentation-in-CT-Scans/blob/docker/vector_region_growing.cxx
+    raise NotImplementedError()
 
 def airway_seg(img_obj):
     
