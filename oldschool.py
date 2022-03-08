@@ -132,7 +132,7 @@ def fissure_seg(img_obj):
     direction = img_obj.GetDirection()
 
     gaussian = sitk.SmoothingRecursiveGaussianImageFilter()
-    gaussian.SetSigma(float(1.0))
+    gaussian.SetSigma(float(0.5))
     smoothed = gaussian.Execute(img_obj)
 
     myfilter = sitk.ObjectnessMeasureImageFilter()

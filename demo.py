@@ -9,8 +9,8 @@ from oldschool import lung_seg, vessel_seg, airway_seg, fissure_seg
 
 TARGET_SHAPE = [1,1,1]
 if __name__ == "__main__":
-    # download
-    
+
+    # download    
     image_root = "images"
     series_instance_uid = '1.3.6.1.4.1.14519.5.2.1.6279.6001.113679818447732724990336702075'
     myfile = f'{image_root}/{series_instance_uid}.nii.gz'
@@ -23,7 +23,7 @@ if __name__ == "__main__":
     # resample
     img_obj= resample_img(img_obj, TARGET_SHAPE)
 
-
+    # process...
     for name,method,args in [
         ('lung',lung_seg,(img_obj,)),
         ('airway',airway_seg,(img_obj,)),
