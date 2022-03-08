@@ -25,9 +25,9 @@ if __name__ == "__main__":
 
 
     for name,method,args in [
-        #('lung',lung_seg,(img_obj,)),
-        #('airway',airway_seg,(img_obj,)),
-        #('vessel',vessel_seg,(img_obj,)),
+        ('lung',lung_seg,(img_obj,)),
+        ('airway',airway_seg,(img_obj,)),
+        ('vessel',vessel_seg,(img_obj,)),
         ('fissure',fissure_seg,(img_obj,)),
         ]:
         print(f'generating {name}...')
