@@ -7,12 +7,12 @@ import skfmm
 import SimpleITK as sitk
 
 # naive lungseg using image processing methods.
-def lung_seg(img_obj,kind=None):
+def lung_seg(img_obj,kind=None,iterations=None):
     
     arr = sitk.GetArrayFromImage(img_obj)
     spacing = img_obj.GetSpacing()
     origin = img_obj.GetOrigin()
-    direction = img_obj.GetDirection()  
+    direction = img_obj.GetDirection()
 
     bkgd = np.zeros(arr.shape).astype(np.uint8)
     pad = 5
@@ -39,14 +39,10 @@ def lung_seg(img_obj,kind=None):
         if contain_bkgd > 0:
             continue
         lung_mask[mask==1]=1
-    
+
     lung_mask = ndimage.morphology.binary_closing(lung_mask,iterations=5)
-    if kind == 'erode5':
-        lung_mask = ndimage.morphology.binary_erosion(lung_mask,iterations=5).astype(arr.dtype)
-    elif kind == 'erode1':
-        lung_mask = ndimage.morphology.binary_erosion(lung_mask,iterations=1).astype(arr.dtype)
-    elif kind  == 'dilate':
-        lung_mask = ndimage.morphology.binary_dilation(lung_mask,iterations=3).astype(arr.dtype)
+    if kind == 'erode':
+        lung_mask = ndimage.morphology.binary_erosion(lung_mask,iterations=iterations).astype(arr.dtype)
     else:
         pass
 
@@ -97,49 +93,47 @@ def lung_seg(img_obj,kind=None):
 
 def vessel_seg(img_obj):
 
+    spacing = img_obj.GetSpacing()
+    origin = img_obj.GetOrigin()
+    direction = img_obj.GetDirection()
+    
     # lungseg
-    lung_obj = lung_seg(img_obj,kind='erode5')
-    
-    img = sitk.GetArrayFromImage(img_obj).clip(-1000,1000).astype(np.float)
-    lung = sitk.GetArrayFromImage(lung_obj)
-    # mask non-lung
-    masked_img = img
-    masked_img[lung==0] = -1000
+    lung_obj = lung_seg(img_obj,kind='erode',iterations=1)
+    lung_mask = sitk.GetArrayFromImage(lung_obj)
 
-    masked_obj = sitk.GetImageFromArray(masked_img)
-    masked_obj.SetSpacing(img_obj.GetSpacing())
-    masked_obj.SetOrigin(img_obj.GetOrigin())
-    masked_obj.SetDirection(img_obj.GetDirection())
+    arr_list = []
+    for x in np.arange(0.5,3.5,1.0):
+        gaussian = sitk.SmoothingRecursiveGaussianImageFilter()
+        gaussian.SetSigma(float(x))
+        smoothed = gaussian.Execute(img_obj)
+        myfilter = sitk.ObjectnessMeasureImageFilter()
+        myfilter.SetBrightObject(True)
+        myfilter.SetObjectDimension(1) # 1: lines (vessels),
+        myfilter.SetAlpha(0.5) 
+        myfilter.SetBeta(0.5)
+        myfilter.SetGamma(5.0)
+        tmp_obj = myfilter.Execute(smoothed)
+        arr_list.append(sitk.GetArrayFromImage(tmp_obj))
     
-    myfilter = sitk.ObjectnessMeasureImageFilter()
-    myfilter.SetBrightObject(True)
-    myfilter.SetObjectDimension(1) # 1: lines (vessels),
-    vessel_obj = myfilter.Execute(masked_obj)
-    
-    # TODO: need a loop for sigma
-    # default values work surprisingly enhances the vessels in the sample image
+    arr = np.max(np.array(arr_list),axis=0)
+    arr[lung_mask==0]=0
+    vessel_obj = sitk.GetImageFromArray(arr)
+    vessel_obj.SetSpacing(spacing)
+    vessel_obj.SetOrigin(origin)
+    vessel_obj.SetDirection(direction)
 
-    myfilter.SetAlpha(0.5)
-    myfilter.SetBeta(0.5)
-    myfilter.SetGamma(5.0)
     return vessel_obj
 
 
 def fissure_seg(img_obj):
 
-    # lungseg
-    lung_obj = lung_seg(img_obj,kind='erode5')
-    
-    img = sitk.GetArrayFromImage(img_obj).clip(-1000,1000).astype(np.float)
-    lung = sitk.GetArrayFromImage(lung_obj)
-    # mask non-lung
-    masked_img = img
-    masked_img[lung==0] = -1000
+    spacing = img_obj.GetSpacing()
+    origin = img_obj.GetOrigin()
+    direction = img_obj.GetDirection()
 
-    masked_obj = sitk.GetImageFromArray(masked_img)
-    masked_obj.SetSpacing(img_obj.GetSpacing())
-    masked_obj.SetOrigin(img_obj.GetOrigin())
-    masked_obj.SetDirection(img_obj.GetDirection())
+    gaussian = sitk.SmoothingRecursiveGaussianImageFilter()
+    gaussian.SetSigma(float(1.0))
+    smoothed = gaussian.Execute(img_obj)
 
     myfilter = sitk.ObjectnessMeasureImageFilter()
     myfilter.SetBrightObject(True)
@@ -148,70 +142,50 @@ def fissure_seg(img_obj):
     myfilter.SetAlpha(0.5) 
     myfilter.SetBeta(0.5)
     myfilter.SetGamma(1000.0)
-    fissure_obj = myfilter.Execute(masked_obj)
+    
+    tmp_obj = myfilter.Execute(smoothed)
+    arr = sitk.GetArrayFromImage(tmp_obj)
+
+    lung_obj = lung_seg(img_obj,kind='erode',iterations=5)
+    lung = sitk.GetArrayFromImage(lung_obj)
+
+    arr[lung==0]=0
+    fissure_obj = sitk.GetImageFromArray(arr)
+    fissure_obj.SetSpacing(spacing)
+    fissure_obj.SetOrigin(origin)
+    fissure_obj.SetDirection(direction)
+
     return fissure_obj
 
-
-def get_point_seeded_field(img,seed):
-    # reference https://github.com/pangyuteng/simple-centerline-extraction
-    sx,sy,sz = seed
-    mask = ~img.astype(bool)
-    img = img.astype(float)
-    m = np.ones_like(img)
-    m[sx,sy,sz] = 0
-    m = np.ma.masked_array(m, mask)
-    ss_field = skfmm.distance(m)
-    return ss_field
-
-# prime example of a bad method.
-# TODO: stay on point and use frangi...
-# region grow is your typical method to do airway seg.
-# distance tranform method used below is straying off the excercise of this project, which is frangi filter.
-# 
 def airway_seg(img_obj):
-
-    lung_obj = lung_seg(img_obj,kind='erode1')
-
-    img = sitk.GetArrayFromImage(img_obj)
-    lung_mask = sitk.GetArrayFromImage(lung_obj)
-    spacing = lung_obj.GetSpacing()
-    origin = lung_obj.GetOrigin()
-    direction = lung_obj.GetDirection()  
     
-    # locate trachea.
-    trachea = lung_mask.copy()
-    trachea[10:,:,:]=0 # TODO: hard coded param - bad.
-    label_image, num = ndimage.label(trachea)
-    region = measure.regionprops(label_image)
-    region = sorted(region,key=lambda x:x.area,reverse=True)
-    seed = region[0].centroid
-    seed = tuple(np.array(seed).astype(np.int))
-    print('seed',seed)
-    ss_field = get_point_seeded_field(lung_mask,seed).astype(np.int)
-    ss_field[lung_mask==0]=-1
-    '''
-    for n,x in enumerate(sorted(np.unique(ss_field))):
-        if x < 0:
-            continue
-        threshold = x
-        ss_mean = np.mean(img[ss_field==x])
-        print(x,ss_mean,np.sum(ss_field==x))
-        # intensity increases going from trachea to lung
-        #if ss_mean > -950: # TODO: hard coded param - not great but justified.
-        #    break
-        if n > 200:
-            break    
-        vimg = np.sum(ss_field==x,axis=1).squeeze()
-        vimg = (255*(vimg-np.min(vimg))/(np.max(vimg)-np.min(vimg))).clip(0,255).astype(np.uint8)
-        imageio.imwrite(f'{x}.png',vimg)
-        print(ss_mean,threshold)
-    '''
-    threshold = 75
-    airway = np.logical_and(ss_field>=0,ss_field<threshold)
-    airway = airway.astype(np.uint8)
+    spacing = img_obj.GetSpacing()
+    origin = img_obj.GetOrigin()
+    direction = img_obj.GetDirection()
+    
+    # lungseg
+    lung_obj = lung_seg(img_obj,kind='erode',iterations=1)
+    lung_mask = sitk.GetArrayFromImage(lung_obj)
 
-    airway_obj = sitk.GetImageFromArray(airway)
+    arr_list = []
+    for x in np.arange(3,6,1):
+        gaussian = sitk.SmoothingRecursiveGaussianImageFilter()
+        gaussian.SetSigma(float(x))
+        smoothed = gaussian.Execute(img_obj)
+        myfilter = sitk.ObjectnessMeasureImageFilter()
+        myfilter.SetBrightObject(False)
+        myfilter.SetObjectDimension(1)
+        myfilter.SetAlpha(0.5) 
+        myfilter.SetBeta(0.5)
+        myfilter.SetGamma(5.0)
+        tmp_obj = myfilter.Execute(smoothed)
+        arr_list.append(sitk.GetArrayFromImage(tmp_obj))
+    
+    arr = np.max(np.array(arr_list),axis=0)
+    arr[lung_mask==0]=0
+    airway_obj = sitk.GetImageFromArray(arr)
     airway_obj.SetSpacing(spacing)
     airway_obj.SetOrigin(origin)
     airway_obj.SetDirection(direction)
+
     return airway_obj

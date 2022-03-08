@@ -25,14 +25,14 @@ if __name__ == "__main__":
 
 
     for name,method,args in [
-        ('lung',lung_seg,(img_obj,)),
-        ('airway',airway_seg,(img_obj,)),
-        ('vessel',vessel_seg,(img_obj,)),
+        #('lung',lung_seg,(img_obj,)),
+        #('airway',airway_seg,(img_obj,)),
+        #('vessel',vessel_seg,(img_obj,)),
         ('fissure',fissure_seg,(img_obj,)),
         ]:
-
+        print(f'generating {name}...')
         tmp_obj = method(*args)
-
+        
         # visualize
         tmp = sitk.GetArrayFromImage(tmp_obj)
         target_shape = (tmp.shape[1],tmp.shape[2])
@@ -40,11 +40,13 @@ if __name__ == "__main__":
         for x in range(3):
             img = np.sum(tmp,axis=x).squeeze()
             img = (255*(img-np.min(img))/(np.max(img)-np.min(img))).clip(0,255).astype(np.uint8)
-            print(img.shape,target_shape)
             img = np.array(Image.fromarray(img).resize(size=target_shape))        
             mip_list.append(img)
+        
+        png_file = f'static/mip_{name}.png'
+        print(f'saving snapshot {png_file}')
         tmp = np.concatenate(mip_list,axis=1)
-        imageio.imwrite(f'static/mip_{name}.png',tmp)
+        imageio.imwrite(png_file,tmp)
     
         
 

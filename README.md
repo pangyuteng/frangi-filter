@@ -2,7 +2,7 @@
 
 
 ```
- weekend homework to refresh my memory on the classic frangi filter.
+ weekend homework fun with SimpleITK because ... why not?
 ```
 
 
@@ -34,11 +34,12 @@ vessel enhanced image:
 
 ![alt text](static/mip_vessel.png)
 
+airway enhanced image
+
+![alt text](static/mip_airway.png)
+
 fissure enhanced image  (pending param tweaking)
 
 ![alt text](static/mip_fissure.png)
 
-airway enhanced image (pending param tweaking)
-
-![alt text](static/mip_airway.png)
 
