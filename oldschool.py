@@ -215,9 +215,9 @@ def airway_seg(img_obj):
         myfilter = sitk.ObjectnessMeasureImageFilter()
         myfilter.SetBrightObject(False)
         myfilter.SetObjectDimension(1)
-        myfilter.SetAlpha(1.0) 
-        myfilter.SetBeta(1.0)
-        myfilter.SetGamma(5.0)
+        myfilter.SetAlpha(0.5) 
+        myfilter.SetBeta(0.5)
+        myfilter.SetGamma(500.0)
         tmp_obj = myfilter.Execute(smoothed)
         arr_list.append(sitk.GetArrayFromImage(tmp_obj))
     
