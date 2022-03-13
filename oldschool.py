@@ -189,7 +189,7 @@ def is_airway(ind,prior_ind,img,lung,tube):
         tubeness = np.take(tube,ind,mode='raise')
         ptubeness = np.take(tube,prior_ind,mode='raise')
 
-        print('img',intensity, pintensity, 'tube',tubeness,ptubeness)
+        #print('img',intensity, pintensity, 'tube',tubeness,ptubeness)
 
         # if it is more or less air
         if np.abs(intensity-pintensity) < 5:
@@ -199,8 +199,12 @@ def is_airway(ind,prior_ind,img,lung,tube):
         if np.abs(tubeness-ptubeness) < 5:
             return True
 
+        if tubeness > ptubeness < 5:
+            return True
+
     except IndexError:
-        return False        
+        return False
+
     except:
         traceback.print_exc()
 
@@ -241,9 +245,10 @@ def region_grow(img,lung,tubeness,seed_points):
                         seed_points.append(ind)
                     np.put(processed,ind,True)
                     coord = np.unravel_index(ind,img.shape)
-                    #print(coord,len(seed_points))
-
+                    print(coord,len(seed_points))
         seed_points.pop(0)
+        if np.sum(outimg)> 25000:
+            break
     return outimg
 
 def airway_seg(img_obj):
