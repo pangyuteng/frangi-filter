@@ -187,10 +187,9 @@ def airway_seg(img_obj):
     bkgd[-1*pad:,:,:]=1
     
 
-    # assume < -300 HU are voxels within lung
-    procarr = (img < -300).astype(np.int)
+    # assume < -500 HU are voxels within lung
+    procarr = (img < -500).astype(np.int)
     procarr = ndimage.morphology.binary_closing(procarr,iterations=1)
-    procarr = ndimage.morphology.binary_erosion(procarr,iterations=2)
 
     label_image, num = ndimage.label(procarr)
     region = measure.regionprops(label_image)
@@ -217,7 +216,7 @@ def airway_seg(img_obj):
         myfilter.SetObjectDimension(1)
         myfilter.SetAlpha(0.5) 
         myfilter.SetBeta(0.5)
-        myfilter.SetGamma(500.0)
+        myfilter.SetGamma(5.0)
         tmp_obj = myfilter.Execute(smoothed)
         arr_list.append(sitk.GetArrayFromImage(tmp_obj))
     
