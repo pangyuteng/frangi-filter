@@ -199,7 +199,7 @@ def is_airway(ind,prior_ind,img,lung,tube):
         if np.abs(tubeness-ptubeness) < 5:
             return True
 
-        if tubeness > ptubeness < 5:
+        if tubeness >  5:
             return True
 
     except IndexError:
