@@ -170,45 +170,6 @@ def fissure_seg_v2(img_obj):
     # https://github.com/pangyuteng/Lung-Lobes-Segmentation-in-CT-Scans/blob/docker/vector_region_growing.cxx
     raise NotImplementedError()
 
-#           trachea     lung
-# img:      dark    to  bright
-# lung:     1       to  1
-# tubeness: high    to  high
-#
-def is_airway(ind,prior_ind,img,lung,tube):
-
-    try:        
-
-        if np.take(lung,ind,mode='raise') == 0:
-            return False
-
-        # prior intensity not too far from current
-        intensity = np.take(img,ind,mode='raise')
-        pintensity = np.take(img,prior_ind,mode='raise')
-
-        tubeness = np.take(tube,ind,mode='raise')
-        ptubeness = np.take(tube,prior_ind,mode='raise')
-        print(f'tubeness {ptubeness:4.2f}\t{tubeness:4.2f}\t intensity \t{pintensity:4d}\t{intensity:4d}\t')
-        
-        if intensity > -700:
-            return False
-            
-        # if it is more or less air
-        if np.abs(intensity-pintensity) < 5:
-            return True
-        
-        # if it is more or less tube-like
-        if np.abs(tubeness-ptubeness) < 5:
-            return True
-
-    except IndexError:
-        return False
-
-    except:
-        traceback.print_exc()
-
-    return False
-
 def airway_seg(img_obj):
     
     img = sitk.GetArrayFromImage(img_obj)
@@ -229,6 +190,7 @@ def airway_seg(img_obj):
     # assume < -300 HU are voxels within lung
     procarr = (img < -300).astype(np.int)
     procarr = ndimage.morphology.binary_closing(procarr,iterations=1)
+    procarr = ndimage.morphology.binary_erosion(procarr,iterations=2)
 
     label_image, num = ndimage.label(procarr)
     region = measure.regionprops(label_image)
@@ -246,15 +208,15 @@ def airway_seg(img_obj):
     
     # enhance tube like structure
     arr_list = []
-    for x in np.arange(0.5,2.5,0.5):
+    for x in np.arange(1,8,1):
         gaussian = sitk.SmoothingRecursiveGaussianImageFilter()
         gaussian.SetSigma(float(x))
         smoothed = gaussian.Execute(img_obj)
         myfilter = sitk.ObjectnessMeasureImageFilter()
         myfilter.SetBrightObject(False)
         myfilter.SetObjectDimension(1)
-        myfilter.SetAlpha(0.5) 
-        myfilter.SetBeta(0.5)
+        myfilter.SetAlpha(1.0) 
+        myfilter.SetBeta(1.0)
         myfilter.SetGamma(5.0)
         tmp_obj = myfilter.Execute(smoothed)
         arr_list.append(sitk.GetArrayFromImage(tmp_obj))

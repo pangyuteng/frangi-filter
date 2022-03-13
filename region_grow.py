@@ -5,7 +5,46 @@ from scipy import ndimage
 from skimage import measure
 import SimpleITK as sitk
 
+#           trachea     lung
+# img:      dark    to  bright
+# lung:     1       to  1
+# tubeness: high    to  high
+#
+def is_airway(ind,prior_ind,img,lung,tube):
 
+    try:        
+
+        if np.take(lung,ind,mode='raise') == 0:
+            return False
+
+        # prior intensity not too far from current
+        intensity = np.take(img,ind,mode='raise')
+        pintensity = np.take(img,prior_ind,mode='raise')
+
+        tubeness = np.take(tube,ind,mode='raise')
+        ptubeness = np.take(tube,prior_ind,mode='raise')
+        print(f'tubeness {ptubeness:4.2f}\t{tubeness:4.2f}\t intensity \t{pintensity:4d}\t{intensity:4d}\t')
+        
+        if intensity > -700:
+            return False
+            
+        # if it is more or less air
+        if np.abs(intensity-pintensity) < 5:
+            return True
+        
+        # if it is more or less tube-like
+        if np.abs(tubeness-ptubeness) < 5:
+            return True
+
+    except IndexError:
+        return False
+
+    except:
+        traceback.print_exc()
+
+    return False
+
+    
 # TODO: needs to be in c++
 def get_connected(ind,shape,search_radius=(1,1,1)):
     coord = np.unravel_index(ind,shape)
