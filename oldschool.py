@@ -174,22 +174,24 @@ def is_airway(ind,prior_ind,img,lung,tubeness):
 
     try:        
 
-        # prior intensity not too far from current
-        intensity = np.take(img,ind,mode='clip')
-        pintensity = np.take(img,prior_ind,mode='clip')
-
-        tubeness = np.take(tubeness,ind,mode='clip')
-        ptubeness = np.take(tubeness,prior_ind,mode='clip')
-
-        print('img',intensity, pintensity, 'tube',tubeness,ptubeness)
-
-        if np.take(lung,ind,mode='clip') == 0:
+        if np.take(lung,ind,mode='raise') == 0:
             return False
 
+        # prior intensity not too far from current
+        intensity = np.take(img,ind,mode='raise')
+        pintensity = np.take(img,prior_ind,mode='raise')
+
+        tubeness = np.take(tubeness,ind,mode='raise')
+        ptubeness = np.take(tubeness,prior_ind,mode='raise')
+
+        print('img',intensity, pintensity, 'raise',tubeness,ptubeness)
+
+        # if it is more or less air
         if np.abs(intensity-pintensity) < 5:
             return True
-        # prior intensity not too far from current
-        if np.abs(tubeness-ptubeness) < 10:
+        
+        # if it is more or less tube-like
+        if np.abs(intensity-pintensity) < 5:
             return True
 
     except IndexError:
