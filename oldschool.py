@@ -237,7 +237,7 @@ def airway_seg(img_obj):
     lung_mask = np.zeros(img.shape).astype(np.uint8)
     
     # assume `x` largest air pockets except covering bkgd is lung, increase x for lung with fibrosis (?)
-    for r in region[:3]:
+    for r in region[:2]:
         mask = label_image==r.label
         contain_bkgd = np.sum(mask*bkgd) > 0
         if contain_bkgd > 0:

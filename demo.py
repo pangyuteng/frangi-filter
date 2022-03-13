@@ -1,9 +1,10 @@
 import os
+import sys
 import SimpleITK as sitk
 import numpy as np
 import imageio
 
-from utils import prepare, imread, resample_img
+from utils import prepare, imread, resample_img, imwrite
 from PIL import Image
 from oldschool import lung_seg, vessel_seg, airway_seg, fissure_seg
 
@@ -27,12 +28,15 @@ if __name__ == "__main__":
     myfile = f'{image_root}/{series_instance_uid}.nii.gz'
     if not os.path.exists(myfile):
         prepare(series_instance_uid,image_root)
+    
+    os.makedirs('resampled',exist_ok=True)
 
     # read    
     img_obj = imread(myfile)
 
     # resample
     img_obj= resample_img(img_obj, TARGET_SHAPE)
+    imwrite('resampled/img.nii.gz',img_obj)
 
     # process...
     for name,method,args in [
@@ -43,7 +47,8 @@ if __name__ == "__main__":
         ]:
         print(f'generating {name}...')
         tmp_obj = method(*args)
-        
+        imwrite(f'resampled/{name}.nii.gz',tmp_obj)
+
         # visualize
         tmp = sitk.GetArrayFromImage(tmp_obj)
         target_shape = (tmp.shape[1],tmp.shape[2])
@@ -58,8 +63,6 @@ if __name__ == "__main__":
         print(f'saving snapshot {png_file}')
         tmp = np.concatenate(mip_list,axis=1)
         imageio.imwrite(png_file,tmp)
-    
-        
 
 
 
