@@ -11,6 +11,6 @@ RUN apt-get install -y python3-pip
 RUN apt-get install -y libboost-python-dev build-essential
 
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip3 install -r requirements.txt
 
 
