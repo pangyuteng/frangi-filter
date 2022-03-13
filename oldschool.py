@@ -249,7 +249,7 @@ def region_grow(img,lung,tubeness,seed_points):
                     coord = np.unravel_index(ind,img.shape)
                     print(coord,len(seed_points))
         seed_points.pop(0)
-        if np.sum(outimg)> 25000:
+        if np.sum(outimg)> 5000:
             break
     return outimg
 
