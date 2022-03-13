@@ -170,6 +170,11 @@ def fissure_seg_v2(img_obj):
     # https://github.com/pangyuteng/Lung-Lobes-Segmentation-in-CT-Scans/blob/docker/vector_region_growing.cxx
     raise NotImplementedError()
 
+#           trachea     lung
+# img:      dark    to  bright
+# lung:     1       to  1
+# tubeness: high    to  high
+#
 def is_airway(ind,prior_ind,img,lung,tubeness):
 
     try:        
@@ -184,7 +189,7 @@ def is_airway(ind,prior_ind,img,lung,tubeness):
         tubeness = np.take(tubeness,ind,mode='raise')
         ptubeness = np.take(tubeness,prior_ind,mode='raise')
 
-        #print('img',intensity, pintensity, 'raise',tubeness,ptubeness)
+        print('img',intensity, pintensity, 'raise',tubeness,ptubeness)
 
         # if it is more or less air
         if np.abs(intensity-pintensity) < 5:
@@ -202,14 +207,14 @@ def is_airway(ind,prior_ind,img,lung,tubeness):
     return False
 
 # TODO: needs to be in c++
-def get_8_connected(cp_ind,shape,search_radius=(2,2,2)):
-    cp = np.unravel_index(cp_ind,shape)
-    Xs = cp[0]-search_radius[0]
-    Xe = cp[0]+search_radius[0]+1 
-    Ys = cp[1]-search_radius[1]
-    Ye = cp[1]+search_radius[1]+1
-    Zs = cp[2]-search_radius[2]
-    Ze = cp[2]+search_radius[2]+1
+def get_connected(ind,shape,search_radius=(2,2,2)):
+    coord = np.unravel_index(ind,shape)
+    Xs = coord[0]-search_radius[0]
+    Xe = coord[0]+search_radius[0]+1 
+    Ys = coord[1]-search_radius[1]
+    Ye = coord[1]+search_radius[1]+1
+    Zs = coord[2]-search_radius[2]
+    Ze = coord[2]+search_radius[2]+1
 
     xs = np.arange(Xs,Xe,1)
     ys = np.arange(Ys,Ye,1)
@@ -220,21 +225,15 @@ def get_8_connected(cp_ind,shape,search_radius=(2,2,2)):
     return region_ind
     
 # TODO: needs to be in c++
-def region_growing(img,lung,tubeness,seed_points):
-    # reference https://stackoverflow.com/a/44143581/868736
-    #     
-    #           trachea     lung
-    # img:      dark    to  bright
-    # lung:     1       to  1
-    # tubeness: high    to  high
-    #
-
+# reference https://stackoverflow.com/a/44143581/868736
+def region_grow(img,lung,tubeness,seed_points):
+    
     processed = np.zeros_like(img).astype(bool)
     outimg = np.zeros_like(img)
     
     while(len(seed_points) > 0):
         prior_ind = seed_points[0]
-        for ind in get_8_connected(prior_ind, img.shape):
+        for ind in get_connected(prior_ind, img.shape):
             if not np.take(processed,ind):
                 if is_airway(ind,prior_ind,img,lung,tubeness):
                     np.put(outimg,ind,1)
@@ -280,7 +279,7 @@ def airway_seg(img_obj):
         if contain_bkgd > 0:
             continue
         lung_mask[mask==1]=1
-    
+    '''
     # enhance tube like structure
     arr_list = []
     for x in np.arange(0.5,2.5,0.5):
@@ -298,7 +297,7 @@ def airway_seg(img_obj):
     
     darktube = np.max(np.array(arr_list),axis=0)    
     darktube[lung_mask==0]=0
-    
+    '''
     # derive seed from top trachea
     trachea_mask = lung_mask.copy()
     trachea_mask[5:,:,:]=0
@@ -307,10 +306,10 @@ def airway_seg(img_obj):
     region = sorted(region,key=lambda x:x.area,reverse=True)
     trachea_seed = np.array(region[0].centroid).astype(np.int)
     print(trachea_seed)
-    seed_point = np.ravel_multi_index(trachea_seed,img.shape,mode='clip')
+    seed_point = np.ravel_multi_index(trachea_seed,img.shape)
     print(seed_point)
-
-    trachea_mask = region_growing(img,lung_mask,darktube,[seed_point])
+    
+    trachea_mask = region_grow(img,lung_mask,lung_mask,[seed_point])
 
     airway_obj = sitk.GetImageFromArray(trachea_mask)
     airway_obj.SetSpacing(spacing)
