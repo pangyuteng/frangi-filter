@@ -7,6 +7,16 @@ from utils import prepare, imread, resample_img
 from PIL import Image
 from oldschool import lung_seg, vessel_seg, airway_seg, fissure_seg
 
+'''
+
+class LungSegmenter(object):
+    def __init__():
+    def seg_airway():
+    def seg_lung():
+    def get_trachea():
+    def get_lung_mask():
+'''
+
 TARGET_SHAPE = [1,1,1]
 if __name__ == "__main__":
 
@@ -26,10 +36,10 @@ if __name__ == "__main__":
 
     # process...
     for name,method,args in [
-        ('lung',lung_seg,(img_obj,)),
+        #('lung',lung_seg,(img_obj,)),
         ('airway',airway_seg,(img_obj,)),
-        ('vessel',vessel_seg,(img_obj,)),
-        ('fissure',fissure_seg,(img_obj,)),
+        #('vessel',vessel_seg,(img_obj,)),
+        #('fissure',fissure_seg,(img_obj,)),
         ]:
         print(f'generating {name}...')
         tmp_obj = method(*args)

@@ -1,4 +1,4 @@
-
+import traceback
 import imageio
 import numpy as np
 from scipy import ndimage
@@ -170,18 +170,119 @@ def fissure_seg_v2(img_obj):
     # https://github.com/pangyuteng/Lung-Lobes-Segmentation-in-CT-Scans/blob/docker/vector_region_growing.cxx
     raise NotImplementedError()
 
+def is_airway(ind,prior_ind,img,lung,tubeness):
+
+    try:        
+
+        # prior intensity not too far from current
+        intensity = np.take(img,ind,mode='clip')
+        pintensity = np.take(img,prior_ind,mode='clip')
+
+        tubeness = np.take(tubeness,ind,mode='clip')
+        ptubeness = np.take(tubeness,prior_ind,mode='clip')
+
+        print('img',intensity, pintensity, 'tube',tubeness,ptubeness)
+
+        if np.take(lung,ind,mode='clip') == 0:
+            return False
+
+        if np.abs(intensity-pintensity) < 5:
+            return True
+        # prior intensity not too far from current
+        if np.abs(tubeness-ptubeness) < 10:
+            return True
+
+    except IndexError:
+        return False        
+    except:
+        traceback.print_exc()
+
+    return False
+
+# TODO: needs to be in c++
+def get_8_connected(cp_ind,shape,search_radius=(2,2,2)):
+    cp = np.unravel_index(cp_ind,shape)
+    Xs = cp[0]-search_radius[0]
+    Xe = cp[0]+search_radius[0]+1 
+    Ys = cp[1]-search_radius[1]
+    Ye = cp[1]+search_radius[1]+1
+    Zs = cp[2]-search_radius[2]
+    Ze = cp[2]+search_radius[2]+1
+
+    xs = np.arange(Xs,Xe,1)
+    ys = np.arange(Ys,Ye,1)
+    zs = np.arange(Zs,Ze,1)
+    grid = np.meshgrid(xs,ys,zs)
+    multi_index = np.array([grid[0].ravel(),grid[1].ravel(),grid[2].ravel()])
+    region_ind = np.ravel_multi_index(multi_index,shape,mode='clip')
+    return region_ind
+    
+# TODO: needs to be in c++
+def region_growing(img,lung,tubeness,seed_points):
+    # reference https://stackoverflow.com/a/44143581/868736
+    #     
+    #           trachea     lung
+    # img:      dark    to  bright
+    # lung:     1       to  1
+    # tubeness: high    to  high
+    #
+
+    processed = np.zeros_like(img).astype(bool)
+    outimg = np.zeros_like(img)
+    
+    while(len(seed_points) > 0):
+        prior_ind = seed_points[0]
+        for ind in get_8_connected(prior_ind, img.shape):
+            if not np.take(processed,ind):
+                if is_airway(ind,prior_ind,img,lung,tubeness):
+                    print(ind,1)
+                    np.put(outimg,ind,1)
+                    if ind not in seed_points:
+                        seed_points.append(ind)
+                    np.put(processed,ind,True)
+                    coord = np.unravel_index(ind,img.shape)
+                    #print(coord,len(seed_points))
+        seed_points.pop(0)
+    return outimg
+
 def airway_seg(img_obj):
     
+    img = sitk.GetArrayFromImage(img_obj)
     spacing = img_obj.GetSpacing()
     origin = img_obj.GetOrigin()
     direction = img_obj.GetDirection()
-    
-    # lungseg
-    lung_obj = lung_seg(img_obj,kind='erode',iterations=1)
-    lung_mask = sitk.GetArrayFromImage(lung_obj)
 
+    bkgd = np.zeros(img.shape).astype(np.uint8)
+    pad = 5
+    bkgd[:,:,:pad]=1
+    bkgd[:,:,-1*pad:]=1
+    bkgd[:,:pad,:]=1
+    bkgd[:,-1*pad:,:]=1
+    # remove air in stomach
+    bkgd[-1*pad:,:,:]=1
+    
+
+    # assume < -300 HU are voxels within lung
+    procarr = (img < -300).astype(np.int)
+    procarr = ndimage.morphology.binary_closing(procarr,iterations=1)
+
+    label_image, num = ndimage.label(procarr)
+    region = measure.regionprops(label_image)
+
+    region = sorted(region,key=lambda x:x.area,reverse=True)
+    lung_mask = np.zeros(img.shape).astype(np.uint8)
+    
+    # assume `x` largest air pockets except covering bkgd is lung, increase x for lung with fibrosis (?)
+    for r in region[:3]:
+        mask = label_image==r.label
+        contain_bkgd = np.sum(mask*bkgd) > 0
+        if contain_bkgd > 0:
+            continue
+        lung_mask[mask==1]=1
+    
+    # enhance tube like structure
     arr_list = []
-    for x in np.arange(3,6,1):
+    for x in np.arange(0.5,2.5,0.5):
         gaussian = sitk.SmoothingRecursiveGaussianImageFilter()
         gaussian.SetSigma(float(x))
         smoothed = gaussian.Execute(img_obj)
@@ -194,9 +295,23 @@ def airway_seg(img_obj):
         tmp_obj = myfilter.Execute(smoothed)
         arr_list.append(sitk.GetArrayFromImage(tmp_obj))
     
-    arr = np.max(np.array(arr_list),axis=0)
-    arr[lung_mask==0]=0
-    airway_obj = sitk.GetImageFromArray(arr)
+    darktube = np.max(np.array(arr_list),axis=0)    
+    darktube[lung_mask==0]=0
+    
+    # derive seed from top trachea
+    trachea_mask = lung_mask.copy()
+    trachea_mask[5:,:,:]=0
+    label_image, num = ndimage.label(trachea_mask)
+    region = measure.regionprops(label_image)
+    region = sorted(region,key=lambda x:x.area,reverse=True)
+    trachea_seed = np.array(region[0].centroid).astype(np.int)
+    print(trachea_seed)
+    seed_point = np.ravel_multi_index(trachea_seed,img.shape,mode='clip')
+    print(seed_point)
+
+    trachea_mask = region_growing(img,lung_mask,darktube,[seed_point])
+
+    airway_obj = sitk.GetImageFromArray(trachea_mask)
     airway_obj.SetSpacing(spacing)
     airway_obj.SetOrigin(origin)
     airway_obj.SetDirection(direction)
