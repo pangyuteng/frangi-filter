@@ -188,8 +188,8 @@ def is_airway(ind,prior_ind,img,lung,tube):
 
         tubeness = np.take(tube,ind,mode='raise')
         ptubeness = np.take(tube,prior_ind,mode='raise')
-
-        #print('img',intensity, pintensity, 'tube',tubeness,ptubeness)
+        print(f'tubeness {ptubeness:4.2f}\t{tubeness:4.2f}\t intensity \t{pintensity:4d}\t{intensity:4d}\t')
+        
         if intensity > -700:
             return False
             
@@ -201,9 +201,6 @@ def is_airway(ind,prior_ind,img,lung,tube):
         if np.abs(tubeness-ptubeness) < 5:
             return True
 
-        if tubeness >  5:
-            return True
-
     except IndexError:
         return False
 
@@ -213,7 +210,7 @@ def is_airway(ind,prior_ind,img,lung,tube):
     return False
 
 # TODO: needs to be in c++
-def get_connected(ind,shape,search_radius=(2,2,2)):
+def get_connected(ind,shape,search_radius=(1,1,1)):
     coord = np.unravel_index(ind,shape)
     Xs = coord[0]-search_radius[0]
     Xe = coord[0]+search_radius[0]+1 
@@ -232,13 +229,16 @@ def get_connected(ind,shape,search_radius=(2,2,2)):
     
 # TODO: needs to be in c++
 # reference https://stackoverflow.com/a/44143581/868736
+# + region grow like algo but with vector
+# + graph cut
+# + graph cnn
 def region_grow(img,lung,tubeness,seed_points):
     
     processed = np.zeros_like(img).astype(bool)
     outimg = np.zeros_like(img)
     
     while(len(seed_points) > 0):
-        prior_ind = seed_points[0]
+        prior_ind,vec = seed_points[0]
         for ind in get_connected(prior_ind, img.shape):
             if not np.take(processed,ind):
                 if is_airway(ind,prior_ind,img,lung,tubeness):
@@ -247,7 +247,7 @@ def region_grow(img,lung,tubeness,seed_points):
                         seed_points.append(ind)
                     np.put(processed,ind,True)
                     coord = np.unravel_index(ind,img.shape)
-                    print(coord,len(seed_points),np.sum(outimg),50000)
+                    #print(coord,len(seed_points),np.sum(outimg),50000)
         seed_points.pop(0)
         if np.sum(outimg)> 50000:
             break
