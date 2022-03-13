@@ -1,0 +1,17 @@
+FROM ubuntu:18.04
+
+RUN apt-get update && apt-get upgrade -y
+RUN apt-get install -y libboost-python-dev build-essential curl
+
+# install MedPy depenencies 
+RUN apt-get install -y python3.6 python3-pip -yq
+RUN rm /usr/bin/python && ln -s /usr/bin/python3.6 /usr/bin/python
+
+RUN pip3 install medpy==0.4.0
+
+# install MedPy depenencies # python3.8 maxflow not built!
+#RUN RUN apt-get install -y python3.8
+#RUN curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && python get-pip.py
+
+
+

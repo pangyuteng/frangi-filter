@@ -209,50 +209,6 @@ def is_airway(ind,prior_ind,img,lung,tube):
 
     return False
 
-# TODO: needs to be in c++
-def get_connected(ind,shape,search_radius=(1,1,1)):
-    coord = np.unravel_index(ind,shape)
-    Xs = coord[0]-search_radius[0]
-    Xe = coord[0]+search_radius[0]+1 
-    Ys = coord[1]-search_radius[1]
-    Ye = coord[1]+search_radius[1]+1
-    Zs = coord[2]-search_radius[2]
-    Ze = coord[2]+search_radius[2]+1
-
-    xs = np.arange(Xs,Xe,1)
-    ys = np.arange(Ys,Ye,1)
-    zs = np.arange(Zs,Ze,1)
-    grid = np.meshgrid(xs,ys,zs)
-    multi_index = np.array([grid[0].ravel(),grid[1].ravel(),grid[2].ravel()])
-    region_ind = np.ravel_multi_index(multi_index,shape,mode='clip')
-    return region_ind
-    
-# TODO: needs to be in c++
-# reference https://stackoverflow.com/a/44143581/868736
-# + region grow like algo but with vector
-# + graph cut
-# + graph cnn
-def region_grow(img,lung,tubeness,seed_points):
-    
-    processed = np.zeros_like(img).astype(bool)
-    outimg = np.zeros_like(img)
-    
-    while(len(seed_points) > 0):
-        prior_ind,vec = seed_points[0]
-        for ind in get_connected(prior_ind, img.shape):
-            if not np.take(processed,ind):
-                if is_airway(ind,prior_ind,img,lung,tubeness):
-                    np.put(outimg,ind,1)
-                    if ind not in seed_points:
-                        seed_points.append(ind)
-                    np.put(processed,ind,True)
-                    coord = np.unravel_index(ind,img.shape)
-                    #print(coord,len(seed_points),np.sum(outimg),50000)
-        seed_points.pop(0)
-        if np.sum(outimg)> 50000:
-            break
-    return outimg
-
 def airway_seg(img_obj):
     
     img = sitk.GetArrayFromImage(img_obj)
@@ -305,21 +261,8 @@ def airway_seg(img_obj):
     
     darktube = np.max(np.array(arr_list),axis=0)    
     darktube[lung_mask==0]=0
-    
-    # derive seed from top trachea
-    trachea_mask = lung_mask.copy()
-    trachea_mask[5:,:,:]=0
-    label_image, num = ndimage.label(trachea_mask)
-    region = measure.regionprops(label_image)
-    region = sorted(region,key=lambda x:x.area,reverse=True)
-    trachea_seed = np.array(region[0].centroid).astype(np.int)
-    print(trachea_seed)
-    seed_point = np.ravel_multi_index(trachea_seed,img.shape)
-    print(seed_point)
-    
-    trachea_mask = region_grow(img,lung_mask,darktube,[seed_point])
 
-    airway_obj = sitk.GetImageFromArray(trachea_mask)
+    airway_obj = sitk.GetImageFromArray(darktube)
     airway_obj.SetSpacing(spacing)
     airway_obj.SetOrigin(origin)
     airway_obj.SetDirection(direction)

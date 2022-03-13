@@ -1,16 +1,8 @@
-#FROM tensorflow/tensorflow:2.6.1-gpu-jupyter
-FROM ubuntu:18.04
+FROM tensorflow/tensorflow:2.6.1-gpu-jupyter
 
-RUN apt-get update && apt-get upgrade -y
-
-# install MedPy depenencies
-RUN apt-get install -y python3.6
-RUN apt-get install -y python3-pip
-
-# install graph-cut functionality dependencies
-RUN apt-get install -y libboost-python-dev build-essential
-
+RUN python -m pip install --upgrade pip
 COPY requirements.txt .
-RUN pip3 install -r requirements.txt
+RUN pip install -r requirements.txt
 
-
+RUN pip install git+https://www.github.com/keras-team/keras-contrib.git
+RUN pip install tensorflow_addons

@@ -8,7 +8,6 @@ import zipfile
 import numpy as np
 import pydicom
 import SimpleITK as sitk
-import matplotlib.pyplot as plt
 
 def download_images(series_instance_uid,image_root="."):
     url = f"https://services.cancerimagingarchive.net/services/v4/TCIA/query/getImage?SeriesInstanceUID={series_instance_uid}"

@@ -14,6 +14,8 @@ trying out sitk.ObjectnessMeasureImageFilter in this repo
 bash build.sh
 
 docker run -it -u $(id -u):$(id -g) -w /workdir -v $PWD:/workdir frangifilter bash
+
+docker run -it -w /workdir -v $PWD:/workdir medpy bash
 ```
 
 
