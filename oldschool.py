@@ -190,7 +190,9 @@ def is_airway(ind,prior_ind,img,lung,tube):
         ptubeness = np.take(tube,prior_ind,mode='raise')
 
         #print('img',intensity, pintensity, 'tube',tubeness,ptubeness)
-
+        if intensity > -700:
+            return False
+            
         # if it is more or less air
         if np.abs(intensity-pintensity) < 5:
             return True
