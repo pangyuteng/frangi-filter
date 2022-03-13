@@ -175,7 +175,7 @@ def fissure_seg_v2(img_obj):
 # lung:     1       to  1
 # tubeness: high    to  high
 #
-def is_airway(ind,prior_ind,img,lung,tubeness):
+def is_airway(ind,prior_ind,img,lung,tube):
 
     try:        
 
@@ -186,10 +186,10 @@ def is_airway(ind,prior_ind,img,lung,tubeness):
         intensity = np.take(img,ind,mode='raise')
         pintensity = np.take(img,prior_ind,mode='raise')
 
-        tubeness = np.take(tubeness,ind,mode='raise')
-        ptubeness = np.take(tubeness,prior_ind,mode='raise')
+        tubeness = np.take(tube,ind,mode='raise')
+        ptubeness = np.take(tube,prior_ind,mode='raise')
 
-        print('img',intensity, pintensity, 'raise',tubeness,ptubeness)
+        print('img',intensity, pintensity, 'tube',tubeness,ptubeness)
 
         # if it is more or less air
         if np.abs(intensity-pintensity) < 5:
@@ -241,7 +241,8 @@ def region_grow(img,lung,tubeness,seed_points):
                         seed_points.append(ind)
                     np.put(processed,ind,True)
                     coord = np.unravel_index(ind,img.shape)
-                    print(coord,len(seed_points))
+                    #print(coord,len(seed_points))
+
         seed_points.pop(0)
     return outimg
 
@@ -279,7 +280,7 @@ def airway_seg(img_obj):
         if contain_bkgd > 0:
             continue
         lung_mask[mask==1]=1
-    '''
+    
     # enhance tube like structure
     arr_list = []
     for x in np.arange(0.5,2.5,0.5):
@@ -297,7 +298,7 @@ def airway_seg(img_obj):
     
     darktube = np.max(np.array(arr_list),axis=0)    
     darktube[lung_mask==0]=0
-    '''
+    
     # derive seed from top trachea
     trachea_mask = lung_mask.copy()
     trachea_mask[5:,:,:]=0
@@ -309,7 +310,7 @@ def airway_seg(img_obj):
     seed_point = np.ravel_multi_index(trachea_seed,img.shape)
     print(seed_point)
     
-    trachea_mask = region_grow(img,lung_mask,lung_mask,[seed_point])
+    trachea_mask = region_grow(img,lung_mask,darktube,[seed_point])
 
     airway_obj = sitk.GetImageFromArray(trachea_mask)
     airway_obj.SetSpacing(spacing)
