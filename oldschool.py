@@ -4,6 +4,7 @@ import numpy as np
 from scipy import ndimage
 from skimage import measure
 import SimpleITK as sitk
+from skimage.morphology import skeletonize
 
 # naive lungseg using image processing methods.
 def lung_seg(img_obj,kind=None,iterations=None):
@@ -116,6 +117,19 @@ def vessel_seg(img_obj):
     
     arr = np.max(np.array(arr_list),axis=0)
     arr[lung_mask==0]=0
+
+    vessel_mask = np.zeros_like(arr)
+    label_image, num = ndimage.measurements.label(arr>0)
+    region = measure.regionprops(label_image)
+    region = sorted(region,key=lambda x:x.area,reverse=True)
+    for r in region[:2]: # pick largest 2
+        mask = label_image == r.label
+        vessel_mask[mask==1] = 1
+    
+    #vessel_obj = sitk.GetImageFromArray(arr)
+    #vessel_obj = skeletonize(vessel_mask)
+    #vessel_obj = sitk.GetImageFromArray(vessel_mask)
+
     vessel_obj = sitk.GetImageFromArray(arr)
     vessel_obj.SetSpacing(spacing)
     vessel_obj.SetOrigin(origin)
