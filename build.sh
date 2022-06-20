@@ -1,3 +1,3 @@
 docker build -t frangifilter .
 
-docker build -f Dockerfile.medpy -t medpy .
+#docker build -f Dockerfile.medpy -t medpy .
