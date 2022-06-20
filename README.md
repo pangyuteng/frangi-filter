@@ -15,7 +15,6 @@ bash build.sh
 
 docker run -it -u $(id -u):$(id -g) -w /workdir -v $PWD:/workdir frangifilter bash
 
-docker run -it -w /workdir -v $PWD:/workdir medpy bash
 ```
 
 
@@ -25,7 +24,14 @@ docker run -it -w /workdir -v $PWD:/workdir medpy bash
 python demo.py
 ```
 
++ TODOS:
 
+```
+docker run -it -w /workdir -v $PWD:/workdir medpy bash
+
+region-grow, graph-cut
+
+```
 
 ### output images
 
@@ -55,4 +61,9 @@ with bright non-fissure plate like structures
 
 left oblique fissure is present while right oblique and horizontal fissures seems to be incomplete/absent.
 
+```
+```
+manual lobe and vessel seg
+https://www.youtube.com/watch?v=wS6-4dwZCfo
+https://www.youtube.com/watch?v=_xr4ZPnpps4
 ```
