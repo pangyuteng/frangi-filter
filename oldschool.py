@@ -102,9 +102,13 @@ def vessel_seg(img_obj):
     lung_mask = sitk.GetArrayFromImage(lung_obj)
 
     arr_list = []
-    for x in np.arange(0.5,3.5,1.0):
+    #for x in np.arange(0.5,3.5,1.0):
+    for x in np.arange(1,6,1):
+        sigma = np.ones(3)*x
+        adjusted_sigma = sigma/np.array(img_obj.GetSpacing())
         gaussian = sitk.SmoothingRecursiveGaussianImageFilter()
-        gaussian.SetSigma(float(x))
+        #gaussian.SetSigma(float(x))
+        gaussian.SetSigma(adjusted_sigma)
         smoothed = gaussian.Execute(img_obj)
         myfilter = sitk.ObjectnessMeasureImageFilter()
         myfilter.SetBrightObject(True)
